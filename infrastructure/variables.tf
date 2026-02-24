@@ -9,3 +9,7 @@ variable "enable_creation" {
   type        = bool
   default     = false
 }
+variable "environment" {
+  description = "Deployment environment"
+  type        = string
+}
