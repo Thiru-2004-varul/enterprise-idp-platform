@@ -1,15 +1,19 @@
 variable "aws_region" {
-  description = "AWS region for infrastructure deployment"
-  type        = string
-  default     = "ap-south-1"
+  type = string
+}
+
+variable "environment" {
+  type = string
 }
 
 variable "enable_creation" {
-  description = "Toggle actual infrastructure provisioning"
-  type        = bool
-  default     = false
+  type = bool
 }
-variable "environment" {
-  description = "Deployment environment"
-  type        = string
+
+variable "public_subnet_count" {
+  type = number
+}
+
+variable "private_subnet_count" {
+  type = number
 }

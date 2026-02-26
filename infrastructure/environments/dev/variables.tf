@@ -1,14 +1,19 @@
 variable "aws_region" {
-  type    = string
-  default = "ap-south-1"
-}
-
-variable "enable_creation" {
-  type    = bool
-  default = false
+  type = string
 }
 
 variable "environment" {
-  type    = string
-  default = "dev"
+  type = string
+}
+
+variable "enable_creation" {
+  type = bool
+}
+
+variable "public_subnet_count" {
+  type = number
+}
+
+variable "private_subnet_count" {
+  type = number
 }
