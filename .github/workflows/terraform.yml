@@ -14,14 +14,6 @@ jobs:
   plan-dev:
     name: Plan — dev
     runs-on: ubuntu-latest
-    if: |
-      contains(github.event.head_commit.modified, 'infrastructure/environments/dev') ||
-      contains(github.event.head_commit.modified, 'infrastructure/modules') ||
-      contains(github.event.pull_request.title, 'dev') ||
-      github.event_name == 'pull_request' && (
-        contains(join(github.event.pull_request.files.*.filename, ','), 'environments/dev') ||
-        contains(join(github.event.pull_request.files.*.filename, ','), 'modules/')
-      )
     steps:
       - uses: actions/checkout@v3
 
@@ -57,13 +49,7 @@ jobs:
   plan-staging:
     name: Plan — staging
     runs-on: ubuntu-latest
-    if: |
-      contains(github.event.head_commit.modified, 'infrastructure/environments/staging') ||
-      contains(github.event.head_commit.modified, 'infrastructure/modules') ||
-      github.event_name == 'pull_request' && (
-        contains(join(github.event.pull_request.files.*.filename, ','), 'environments/staging') ||
-        contains(join(github.event.pull_request.files.*.filename, ','), 'modules/')
-      )
+    needs: plan-dev
     steps:
       - uses: actions/checkout@v3
 
@@ -99,13 +85,7 @@ jobs:
   plan-prod:
     name: Plan — prod
     runs-on: ubuntu-latest
-    if: |
-      contains(github.event.head_commit.modified, 'infrastructure/environments/prod') ||
-      contains(github.event.head_commit.modified, 'infrastructure/modules') ||
-      github.event_name == 'pull_request' && (
-        contains(join(github.event.pull_request.files.*.filename, ','), 'environments/prod') ||
-        contains(join(github.event.pull_request.files.*.filename, ','), 'modules/')
-      )
+    needs: plan-staging
     steps:
       - uses: actions/checkout@v3
 
