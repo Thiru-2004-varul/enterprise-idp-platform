@@ -1,8 +1,10 @@
+
 # Terraform state and secrets
 *.tfstate
 *.tfstate.*
 *.tfvars
 !*.tfvars.example
+!*.ci.tfvars
 .terraform/
 .terraform.lock.hcl
 crash.log
@@ -13,4 +15,3 @@ override.tf.json
 .DS_Store
 Thumbs.db
 graph.png
-

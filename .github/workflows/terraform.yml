@@ -10,10 +10,18 @@ env:
   TF_WORKING_DIR: infrastructure
 
 jobs:
-  terraform-plan:
-    name: Terraform Plan
-    runs-on: ubuntu-latest
 
+  plan-dev:
+    name: Plan — dev
+    runs-on: ubuntu-latest
+    if: |
+      contains(github.event.head_commit.modified, 'infrastructure/environments/dev') ||
+      contains(github.event.head_commit.modified, 'infrastructure/modules') ||
+      contains(github.event.pull_request.title, 'dev') ||
+      github.event_name == 'pull_request' && (
+        contains(join(github.event.pull_request.files.*.filename, ','), 'environments/dev') ||
+        contains(join(github.event.pull_request.files.*.filename, ','), 'modules/')
+      )
     steps:
       - uses: actions/checkout@v3
 
@@ -36,6 +44,96 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform validate
 
-      - name: Terraform Plan
+      - name: Terraform Plan — dev
         working-directory: ${{ env.TF_WORKING_DIR }}
-        run: terraform plan -var-file=environments/dev/terraform.tfvars
+        run: |
+          terraform plan \
+            -var="aws_region=ap-south-1" \
+            -var="environment=dev" \
+            -var="enable_creation=false" \
+            -var="public_subnet_count=2" \
+            -var="private_subnet_count=2"
+
+  plan-staging:
+    name: Plan — staging
+    runs-on: ubuntu-latest
+    if: |
+      contains(github.event.head_commit.modified, 'infrastructure/environments/staging') ||
+      contains(github.event.head_commit.modified, 'infrastructure/modules') ||
+      github.event_name == 'pull_request' && (
+        contains(join(github.event.pull_request.files.*.filename, ','), 'environments/staging') ||
+        contains(join(github.event.pull_request.files.*.filename, ','), 'modules/')
+      )
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.7.0
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init
+
+      - name: Terraform Validate
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform validate
+
+      - name: Terraform Plan — staging
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          terraform plan \
+            -var="aws_region=ap-south-1" \
+            -var="environment=staging" \
+            -var="enable_creation=false" \
+            -var="public_subnet_count=2" \
+            -var="private_subnet_count=2"
+
+  plan-prod:
+    name: Plan — prod
+    runs-on: ubuntu-latest
+    if: |
+      contains(github.event.head_commit.modified, 'infrastructure/environments/prod') ||
+      contains(github.event.head_commit.modified, 'infrastructure/modules') ||
+      github.event_name == 'pull_request' && (
+        contains(join(github.event.pull_request.files.*.filename, ','), 'environments/prod') ||
+        contains(join(github.event.pull_request.files.*.filename, ','), 'modules/')
+      )
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.7.0
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+
+      - name: Terraform Init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform init
+
+      - name: Terraform Validate
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform validate
+
+      - name: Terraform Plan — prod
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          terraform plan \
+            -var="aws_region=ap-south-1" \
+            -var="environment=prod" \
+            -var="enable_creation=false" \
+            -var="public_subnet_count=3" \
+            -var="private_subnet_count=3"
