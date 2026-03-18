@@ -123,4 +123,4 @@ terraform destroy -var-file=terraform.tfvars
 
 ## Author
 
-**Thiruvarul G** — AWS DevOps Engineer · [github.com/Thiru-2004-varul](https://github.com/Thiru-2004-varul)
+**Thiruvarul G** —  [github.com/Thiru-2004-varul](https://github.com/Thiru-2004-varul)
