@@ -180,3 +180,20 @@ jobs:
             -var="enable_creation=false" \
             -var="public_subnet_count=3" \
             -var="private_subnet_count=3"
+
+  pipeline-status:
+    name: Pipeline status
+    runs-on: ubuntu-latest
+    needs: [detect-changes, plan-dev, plan-staging, plan-prod]
+    if: always()
+    steps:
+      - name: Check all jobs passed
+        run: |
+          if [[ "${{ needs.plan-dev.result }}" == "failure" || \
+                "${{ needs.plan-staging.result }}" == "failure" || \
+                "${{ needs.plan-prod.result }}" == "failure" ]]; then
+            echo "One or more plans failed"
+            exit 1
+          fi
+          echo "All plans passed or skipped"
+          exit 0
