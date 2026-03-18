@@ -1,0 +1,5 @@
+aws_region           = "ap-south-1"
+environment          = "staging"
+enable_creation      = true
+public_subnet_count  = 2
+private_subnet_count = 2

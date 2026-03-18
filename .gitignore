@@ -1,22 +1,16 @@
-# Terraform
-.terraform/
+# Terraform state and secrets
 *.tfstate
 *.tfstate.*
 *.tfvars
+!*.tfvars.example
+.terraform/
+.terraform.lock.hcl
 crash.log
 override.tf
 override.tf.json
-terraform.tfvars
-terraform.rc
-.terraform.*
-graph.png
 
 # OS
 .DS_Store
+Thumbs.db
+graph.png
 
-# IDE
-.vscode/
-.idea/
-
-# Logs
-*.log

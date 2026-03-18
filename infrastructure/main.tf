@@ -13,3 +13,21 @@ module "security" {
   environment = var.environment
   vpc_id      = module.vpc.vpc_id
 }
+
+module "iam" {
+  source      = "./modules/iam"
+  environment = var.environment
+}
+
+module "eks" {
+  source = "./modules/eks"
+
+  environment             = var.environment
+  private_subnet_ids      = module.vpc.private_subnet_ids
+  eks_cluster_role_arn    = module.iam.eks_cluster_role_arn
+  eks_node_group_role_arn = module.iam.eks_node_group_role_arn
+  instance_type           = "t3.medium"
+  desired_nodes           = 1
+  min_nodes               = 1
+  max_nodes               = 3
+}
