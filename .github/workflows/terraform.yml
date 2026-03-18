@@ -3,10 +3,6 @@ name: Terraform CI/CD
 on:
   pull_request:
     branches: [main]
-    paths:
-      - 'infrastructure/**'
-      - 'k8s/**'
-      - '.github/workflows/**'
   push:
     branches: [main]
     paths:
