@@ -3,8 +3,16 @@ name: Terraform CI/CD
 on:
   pull_request:
     branches: [main]
+    paths:
+      - 'infrastructure/**'
+      - 'k8s/**'
+      - '.github/workflows/**'
   push:
     branches: [main]
+    paths:
+      - 'infrastructure/**'
+      - 'k8s/**'
+      - '.github/workflows/**'
 
 env:
   TF_WORKING_DIR: infrastructure
@@ -40,18 +48,24 @@ jobs:
               - 'infrastructure/versions.tf'
 
   plan-dev:
-    name: Plan — dev
+    name: Plan -- dev
     runs-on: ubuntu-latest
     needs: detect-changes
-    if: needs.detect-changes.outputs.dev == 'true' || needs.detect-changes.outputs.modules == 'true'
     steps:
+      - name: No dev changes
+        if: needs.detect-changes.outputs.dev != 'true' && needs.detect-changes.outputs.modules != 'true'
+        run: echo "::notice::No dev or module changes -- plan skipped"
+
       - uses: actions/checkout@v3
+        if: needs.detect-changes.outputs.dev == 'true' || needs.detect-changes.outputs.modules == 'true'
 
       - uses: hashicorp/setup-terraform@v3
+        if: needs.detect-changes.outputs.dev == 'true' || needs.detect-changes.outputs.modules == 'true'
         with:
           terraform_version: 1.7.0
 
       - name: Configure AWS credentials
+        if: needs.detect-changes.outputs.dev == 'true' || needs.detect-changes.outputs.modules == 'true'
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -59,14 +73,17 @@ jobs:
           aws-region: ap-south-1
 
       - name: Terraform Init
+        if: needs.detect-changes.outputs.dev == 'true' || needs.detect-changes.outputs.modules == 'true'
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform init
 
       - name: Terraform Validate
+        if: needs.detect-changes.outputs.dev == 'true' || needs.detect-changes.outputs.modules == 'true'
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform validate
 
-      - name: Terraform Plan — dev
+      - name: Terraform Plan
+        if: needs.detect-changes.outputs.dev == 'true' || needs.detect-changes.outputs.modules == 'true'
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
           terraform plan \
@@ -76,30 +93,25 @@ jobs:
             -var="public_subnet_count=2" \
             -var="private_subnet_count=2"
 
-  plan-dev-skip:
-    name: Plan — dev
-    runs-on: ubuntu-latest
-    needs: detect-changes
-    if: needs.detect-changes.outputs.dev != 'true' && needs.detect-changes.outputs.modules != 'true'
-    steps:
-      - name: No dev changes detected
-        run: |
-          echo "::notice::No changes in dev environment or shared modules — plan skipped"
-          exit 0
-
   plan-staging:
-    name: Plan — staging
+    name: Plan -- staging
     runs-on: ubuntu-latest
     needs: detect-changes
-    if: needs.detect-changes.outputs.staging == 'true' || needs.detect-changes.outputs.modules == 'true'
     steps:
+      - name: No staging changes
+        if: needs.detect-changes.outputs.staging != 'true' && needs.detect-changes.outputs.modules != 'true'
+        run: echo "::notice::No staging or module changes -- plan skipped"
+
       - uses: actions/checkout@v3
+        if: needs.detect-changes.outputs.staging == 'true' || needs.detect-changes.outputs.modules == 'true'
 
       - uses: hashicorp/setup-terraform@v3
+        if: needs.detect-changes.outputs.staging == 'true' || needs.detect-changes.outputs.modules == 'true'
         with:
           terraform_version: 1.7.0
 
       - name: Configure AWS credentials
+        if: needs.detect-changes.outputs.staging == 'true' || needs.detect-changes.outputs.modules == 'true'
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -107,14 +119,17 @@ jobs:
           aws-region: ap-south-1
 
       - name: Terraform Init
+        if: needs.detect-changes.outputs.staging == 'true' || needs.detect-changes.outputs.modules == 'true'
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform init
 
       - name: Terraform Validate
+        if: needs.detect-changes.outputs.staging == 'true' || needs.detect-changes.outputs.modules == 'true'
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform validate
 
-      - name: Terraform Plan — staging
+      - name: Terraform Plan
+        if: needs.detect-changes.outputs.staging == 'true' || needs.detect-changes.outputs.modules == 'true'
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
           terraform plan \
@@ -124,30 +139,25 @@ jobs:
             -var="public_subnet_count=2" \
             -var="private_subnet_count=2"
 
-  plan-staging-skip:
-    name: Plan — staging
-    runs-on: ubuntu-latest
-    needs: detect-changes
-    if: needs.detect-changes.outputs.staging != 'true' && needs.detect-changes.outputs.modules != 'true'
-    steps:
-      - name: No staging changes detected
-        run: |
-          echo "::notice::No changes in staging environment or shared modules — plan skipped"
-          exit 0
-
   plan-prod:
-    name: Plan — prod
+    name: Plan -- prod
     runs-on: ubuntu-latest
     needs: detect-changes
-    if: needs.detect-changes.outputs.prod == 'true' || needs.detect-changes.outputs.modules == 'true'
     steps:
+      - name: No prod changes
+        if: needs.detect-changes.outputs.prod != 'true' && needs.detect-changes.outputs.modules != 'true'
+        run: echo "::notice::No prod or module changes -- plan skipped"
+
       - uses: actions/checkout@v3
+        if: needs.detect-changes.outputs.prod == 'true' || needs.detect-changes.outputs.modules == 'true'
 
       - uses: hashicorp/setup-terraform@v3
+        if: needs.detect-changes.outputs.prod == 'true' || needs.detect-changes.outputs.modules == 'true'
         with:
           terraform_version: 1.7.0
 
       - name: Configure AWS credentials
+        if: needs.detect-changes.outputs.prod == 'true' || needs.detect-changes.outputs.modules == 'true'
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -155,14 +165,17 @@ jobs:
           aws-region: ap-south-1
 
       - name: Terraform Init
+        if: needs.detect-changes.outputs.prod == 'true' || needs.detect-changes.outputs.modules == 'true'
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform init
 
       - name: Terraform Validate
+        if: needs.detect-changes.outputs.prod == 'true' || needs.detect-changes.outputs.modules == 'true'
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: terraform validate
 
-      - name: Terraform Plan — prod
+      - name: Terraform Plan
+        if: needs.detect-changes.outputs.prod == 'true' || needs.detect-changes.outputs.modules == 'true'
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
           terraform plan \
@@ -171,14 +184,3 @@ jobs:
             -var="enable_creation=false" \
             -var="public_subnet_count=3" \
             -var="private_subnet_count=3"
-
-  plan-prod-skip:
-    name: Plan — prod
-    runs-on: ubuntu-latest
-    needs: detect-changes
-    if: needs.detect-changes.outputs.prod != 'true' && needs.detect-changes.outputs.modules != 'true'
-    steps:
-      - name: No prod changes detected
-        run: |
-          echo "::notice::No changes in prod environment or shared modules — plan skipped"
-          exit 0
