@@ -6,11 +6,13 @@ on:
     paths:
       - 'infrastructure/**'
       - 'k8s/**'
+      - '.github/workflows/**'
   push:
     branches: [main]
     paths:
       - 'infrastructure/**'
       - 'k8s/**'
+      - '.github/workflows/**'
 
 env:
   TF_WORKING_DIR: infrastructure
@@ -113,7 +115,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY)}
           aws-region: ap-south-1
 
       - name: Terraform Init
