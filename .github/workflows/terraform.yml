@@ -11,9 +11,39 @@ env:
 
 jobs:
 
+  detect-changes:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      dev: ${{ steps.filter.outputs.dev }}
+      staging: ${{ steps.filter.outputs.staging }}
+      prod: ${{ steps.filter.outputs.prod }}
+      modules: ${{ steps.filter.outputs.modules }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Filter changed paths
+        uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            dev:
+              - 'infrastructure/environments/dev/**'
+            staging:
+              - 'infrastructure/environments/staging/**'
+            prod:
+              - 'infrastructure/environments/prod/**'
+            modules:
+              - 'infrastructure/modules/**'
+              - 'infrastructure/main.tf'
+              - 'infrastructure/variables.tf'
+              - 'infrastructure/versions.tf'
+
   plan-dev:
     name: Plan — dev
     runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.dev == 'true' || needs.detect-changes.outputs.modules == 'true'
     steps:
       - uses: actions/checkout@v3
 
@@ -46,10 +76,22 @@ jobs:
             -var="public_subnet_count=2" \
             -var="private_subnet_count=2"
 
+  plan-dev-skip:
+    name: Plan — dev
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.dev != 'true' && needs.detect-changes.outputs.modules != 'true'
+    steps:
+      - name: No dev changes detected
+        run: |
+          echo "::notice::No changes in dev environment or shared modules — plan skipped"
+          exit 0
+
   plan-staging:
     name: Plan — staging
     runs-on: ubuntu-latest
-    needs: plan-dev
+    needs: detect-changes
+    if: needs.detect-changes.outputs.staging == 'true' || needs.detect-changes.outputs.modules == 'true'
     steps:
       - uses: actions/checkout@v3
 
@@ -82,10 +124,22 @@ jobs:
             -var="public_subnet_count=2" \
             -var="private_subnet_count=2"
 
+  plan-staging-skip:
+    name: Plan — staging
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.staging != 'true' && needs.detect-changes.outputs.modules != 'true'
+    steps:
+      - name: No staging changes detected
+        run: |
+          echo "::notice::No changes in staging environment or shared modules — plan skipped"
+          exit 0
+
   plan-prod:
     name: Plan — prod
     runs-on: ubuntu-latest
-    needs: plan-staging
+    needs: detect-changes
+    if: needs.detect-changes.outputs.prod == 'true' || needs.detect-changes.outputs.modules == 'true'
     steps:
       - uses: actions/checkout@v3
 
@@ -117,3 +171,14 @@ jobs:
             -var="enable_creation=false" \
             -var="public_subnet_count=3" \
             -var="private_subnet_count=3"
+
+  plan-prod-skip:
+    name: Plan — prod
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.prod != 'true' && needs.detect-changes.outputs.modules != 'true'
+    steps:
+      - name: No prod changes detected
+        run: |
+          echo "::notice::No changes in prod environment or shared modules — plan skipped"
+          exit 0
