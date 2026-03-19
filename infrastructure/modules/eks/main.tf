@@ -1,4 +1,5 @@
 resource "aws_eks_cluster" "this" {
+  count    = length(var.private_subnet_ids) > 0 ? 1 : 0
   name     = "${var.environment}-idp-cluster"
   role_arn = var.eks_cluster_role_arn
   version  = var.kubernetes_version
@@ -17,7 +18,8 @@ resource "aws_eks_cluster" "this" {
 }
 
 resource "aws_eks_node_group" "this" {
-  cluster_name    = aws_eks_cluster.this.name
+  count           = length(var.private_subnet_ids) > 0 ? 1 : 0
+  cluster_name    = aws_eks_cluster.this[0].name
   node_group_name = "${var.environment}-node-group"
   node_role_arn   = var.eks_node_group_role_arn
   subnet_ids      = var.private_subnet_ids
