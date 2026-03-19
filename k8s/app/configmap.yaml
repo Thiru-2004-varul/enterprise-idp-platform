@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: dev
+data:
+  APP_ENV: "dev"
+  LOG_LEVEL: "debug"
+  MAX_CONNECTIONS: "10"

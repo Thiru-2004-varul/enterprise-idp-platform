@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: idp-app
+  namespace: dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: idp-app
+  template:
+    metadata:
+      labels:
+        app: idp-app
+    spec:
+      containers:
+        - name: idp-app
+          image: 697551514015.dkr.ecr.ap-south-1.amazonaws.com/dev-idp-app:v1.0
+          ports:
+            - containerPort: 5000
+          envFrom:
+            - configMapRef:
+                name: app-config
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: idp-app-service
+  namespace: dev
+spec:
+  selector:
+    app: idp-app
+  ports:
+    - port: 80
+      targetPort: 5000
+  type: ClusterIP
