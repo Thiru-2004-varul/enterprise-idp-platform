@@ -6,7 +6,7 @@
 ![Kubernetes](https://img.shields.io/badge/Kubernetes-1.29-326CE5)
 ![Region](https://img.shields.io/badge/Region-ap--south--1-green)
 
-> Production-grade Internal Developer Platform on AWS — modular Terraform infrastructure, isolated Kubernetes environments per team, RBAC-enforced access control, and plan-only CI/CD pipeline.
+> Production-grade Internal Developer Platform on AWS — modular Terraform infrastructure, isolated Kubernetes environments per team, RBAC-enforced access control, ECR-based image registry, and smart path-based CI/CD pipeline.
 
 ---
 
@@ -28,9 +28,24 @@
    Pods: 10  Pods: 20      Pods: 50
                  |
           [NAT Gateway]
-                 |
-              Internet
           (outbound only)
+```
+
+---
+
+## How It Works
+```
+Developer writes code
+      ↓
+docker build → docker push → ECR (private image registry)
+      ↓
+kubectl apply → EKS API server
+      ↓ IAM token → aws-auth → K8s group → RBAC checks
+Worker node pulls image from ECR using IAM role
+      ↓
+Pod starts → reads config from ConfigMap
+      ↓
+App running in isolated namespace
 ```
 
 ---
@@ -39,12 +54,34 @@
 
 | Tool | Purpose |
 |------|---------|
-| Terraform | All infrastructure as modular reusable code |
+| Terraform | All AWS infrastructure as modular reusable code |
 | AWS EKS | Managed Kubernetes — AWS runs the control plane |
-| AWS VPC | Isolated network across 2–3 AZs |
-| AWS IAM | Least-privilege roles per component |
-| Kubernetes RBAC | Namespace-scoped developer access |
-| GitHub Actions | terraform plan on every PR — smart path detection |
+| AWS VPC | Isolated network — worker nodes in private subnets |
+| AWS IAM | Least-privilege roles for cluster, nodes, developers |
+| AWS ECR | Private Docker image registry — IAM-based auth, no passwords |
+| Kubernetes RBAC | Namespace-scoped access via aws-auth + RoleBinding |
+| Kubernetes ConfigMap | Environment-specific config injected as env vars |
+| Kubernetes ResourceQuota | Hard CPU, memory, pod limits per namespace |
+| GitHub Actions | Smart path-based terraform plan on every PR |
+
+---
+
+## Access Control
+
+| Person | IAM Role | K8s Group | Namespace Access |
+|--------|----------|-----------|-----------------|
+| DevOps (Thiru) | admin-role | platform-admins | All namespaces + cluster level |
+| Developer (Ravi) | dev-developer-role | dev-developers | dev only |
+| Senior Dev (Priya) | staging-developer-role | staging-developers | staging + prod |
+
+**Identity flow:**
+```
+IAM User assumes IAM Role
+      ↓ aws-auth ConfigMap maps
+Kubernetes Group
+      ↓ RoleBinding connects
+Role permissions in specific namespace only
+```
 
 ---
 
@@ -53,27 +90,35 @@
 enterprise-idp-platform/
 ├── .github/
 │   └── workflows/
-│       └── terraform.yml       # Plan on PR — triggers only for changed environment
+│       └── terraform.yml        # Smart path-based CI/CD pipeline
+├── app/
+│   ├── app.py                   # Sample Flask application
+│   ├── Dockerfile               # Container image definition
+│   └── requirements.txt         # Python dependencies
 ├── infrastructure/
 │   ├── modules/
-│   │   ├── vpc/                # VPC, subnets, IGW, NAT, route tables
-│   │   ├── security/           # ALB, EC2, RDS security groups
-│   │   ├── iam/                # Cluster, node, developer IAM roles
-│   │   └── eks/                # EKS cluster + managed node group
+│   │   ├── vpc/                 # VPC, subnets, IGW, NAT Gateway
+│   │   ├── security/            # ALB, EC2, RDS security groups
+│   │   ├── iam/                 # Cluster, node, developer IAM roles
+│   │   ├── eks/                 # EKS cluster + managed node group
+│   │   └── ecr/                 # ECR repository + lifecycle policy
 │   ├── environments/
-│   │   ├── dev/                # 2 AZs · 1 node · CPU 4 · Mem 4Gi
-│   │   ├── staging/            # 2 AZs · 1 node · CPU 8 · Mem 8Gi
-│   │   └── prod/               # 3 AZs · 3 nodes · CPU 16 · Mem 16Gi
-│   ├── main.tf                 # Root — wires all modules together
-│   ├── variables.tf            # All inputs with descriptions
-│   ├── outputs.tf              # VPC ID, EKS cluster name, subnet IDs
-│   └── versions.tf             # Terraform + provider constraints
+│   │   ├── dev/                 # 2 AZs · 1 node · CPU 4 · Mem 4Gi
+│   │   ├── staging/             # 2 AZs · 1 node · CPU 8 · Mem 8Gi
+│   │   └── prod/                # 3 AZs · 3 nodes · CPU 16 · Mem 16Gi
+│   ├── main.tf
+│   ├── variables.tf
+│   ├── outputs.tf
+│   └── versions.tf
 └── k8s/
     ├── namespaces/
-    │   ├── namespaces.yaml     # dev, staging, prod namespace definitions
-    │   └── resource-quotas.yaml # CPU, memory, pod limits per namespace
-    └── rbac/
-        └── developer-rbac.yaml # Role + RoleBinding for dev namespace
+    │   ├── namespaces.yaml
+    │   └── resource-quotas.yaml
+    ├── rbac/
+    │   └── developer-rbac.yaml
+    └── app/
+        ├── configmap.yaml
+        └── deployment.yaml
 ```
 
 ---
@@ -82,60 +127,122 @@ enterprise-idp-platform/
 
 - Terraform >= 1.5
 - AWS CLI configured — `aws configure`
-- kubectl
+- kubectl installed
+- Docker installed
 - AWS account — ap-south-1 region
 
 ---
 
 ## Usage
 
-### 1. Clone
-```bash
-git clone https://github.com/Thiru-2004-varul/enterprise-idp-platform.git
-cd enterprise-idp-platform
-```
-
-### 2. Set credentials
-
-`.tfvars` files are gitignored — never commit them. Copy from example:
+### Deploy dev environment
 ```bash
 cp infrastructure/environments/dev/terraform.tfvars.example \
    infrastructure/environments/dev/terraform.tfvars
-```
 
-`terraform.tfvars.example`:
-```hcl
-aws_region           = "ap-south-1"
-environment          = "dev"
-enable_creation      = true
-public_subnet_count  = 2
-private_subnet_count = 2
-```
-
-### 3. Plan
-```bash
 cd infrastructure/environments/dev
 terraform init
-terraform plan -var-file=terraform.tfvars
-```
-
-### 4. Apply
-```bash
 terraform apply -var-file=terraform.tfvars
-# EKS takes 15-20 min · costs ~Rs.17/hr · destroy when done
-```
 
-### 5. Connect kubectl
-```bash
 aws eks update-kubeconfig --name dev-idp-cluster --region ap-south-1
-kubectl get nodes
-kubectl apply -f ../../k8s/namespaces/
-kubectl apply -f ../../k8s/rbac/
-kubectl get resourcequota -A
+kubectl apply -f ../../../k8s/namespaces/
+kubectl apply -f ../../../k8s/rbac/
+kubectl apply -f ../../../k8s/app/
 ```
 
-### 6. Destroy
+### Deploy staging environment
 ```bash
+cp infrastructure/environments/staging/terraform.tfvars.example \
+   infrastructure/environments/staging/terraform.tfvars
+
+cd infrastructure/environments/staging
+terraform init
+terraform apply -var-file=terraform.tfvars
+
+aws eks update-kubeconfig --name staging-idp-cluster --region ap-south-1
+kubectl apply -f ../../../k8s/namespaces/
+kubectl apply -f ../../../k8s/rbac/
+kubectl apply -f ../../../k8s/app/
+```
+
+### Deploy prod environment
+```bash
+cp infrastructure/environments/prod/terraform.tfvars.example \
+   infrastructure/environments/prod/terraform.tfvars
+
+cd infrastructure/environments/prod
+terraform init
+terraform apply -var-file=terraform.tfvars
+
+aws eks update-kubeconfig --name prod-idp-cluster --region ap-south-1
+kubectl apply -f ../../../k8s/namespaces/
+kubectl apply -f ../../../k8s/rbac/
+kubectl apply -f ../../../k8s/app/
+```
+
+### Add developer access
+```bash
+# Add IAM role to aws-auth after each environment apply
+kubectl edit configmap aws-auth -n kube-system
+
+# Dev developer
+# - rolearn: arn:aws:iam::ACCOUNT_ID:role/dev-developer-role
+#   username: developer
+#   groups:
+#     - dev-developers
+
+# Staging developer
+# - rolearn: arn:aws:iam::ACCOUNT_ID:role/staging-developer-role
+#   username: developer
+#   groups:
+#     - staging-developers
+```
+
+### Build and push app image
+```bash
+cd app
+docker build -t idp-app:v1.0 .
+
+aws ecr get-login-password --region ap-south-1 | \
+  docker login --username AWS --password-stdin \
+  ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com
+
+docker tag idp-app:v1.0 \
+  ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/dev-idp-app:v1.0
+
+docker push \
+  ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/dev-idp-app:v1.0
+```
+
+### Verify RBAC
+```bash
+# dev-developers group — dev access only
+kubectl auth can-i get pods -n dev \
+  --as=any-developer --as-group=dev-developers
+# → yes
+
+kubectl auth can-i get pods -n prod \
+  --as=any-developer --as-group=dev-developers
+# → no
+```
+
+### Verify ConfigMap injection
+```bash
+kubectl exec -it <pod-name> -n dev -- env | grep APP_ENV
+# → APP_ENV=dev
+```
+
+### Destroy when done
+```bash
+kubectl delete -f k8s/app/
+kubectl delete -f k8s/rbac/
+kubectl delete -f k8s/namespaces/
+
+aws ecr delete-repository \
+  --repository-name dev-idp-app \
+  --force --region ap-south-1
+
+cd infrastructure/environments/dev
 terraform destroy -var-file=terraform.tfvars
 ```
 
@@ -154,31 +261,15 @@ terraform destroy -var-file=terraform.tfvars
 
 ---
 
-## Key Design Decisions
+## CI/CD Behaviour
 
-| Decision | Why |
-|----------|-----|
-| Worker nodes in private subnets | Not reachable from internet — ALB is the only entry point |
-| Separate IAM role per component | Least privilege — cluster, nodes, devs each get only what they need |
-| RBAC scoped per namespace | Developers cannot touch staging or prod |
-| ResourceQuota on every namespace | Prevents one team consuming all cluster resources |
-| Plan-only CI/CD | Every infrastructure change reviewed before touching AWS |
-| Path-based pipeline triggers | Only affected environment plans run — dev change never triggers prod plan |
-| `.tfvars` gitignored | No credentials or environment values ever committed |
-
----
-
-## CI/CD
-
-Pipeline triggers only when relevant paths change:
-
-| Files changed | Jobs that run |
+| Files changed | Jobs triggered |
 |---|---|
 | `infrastructure/environments/dev/**` | Plan -- dev only |
 | `infrastructure/environments/staging/**` | Plan -- staging only |
 | `infrastructure/environments/prod/**` | Plan -- prod only |
 | `infrastructure/modules/**` | All three plans |
-| `README.md` or `.gitignore` | Nothing runs |
+| `README.md` | Nothing runs |
 
 Add AWS credentials to GitHub → Settings → Secrets → Actions:
 - `AWS_ACCESS_KEY_ID`
@@ -186,13 +277,34 @@ Add AWS credentials to GitHub → Settings → Secrets → Actions:
 
 ---
 
+## Key Design Decisions
+
+| Decision | Why |
+|----------|-----|
+| Worker nodes in private subnets | Not reachable from internet — ALB is the only entry point |
+| Separate IAM role per environment | Least privilege — each team gets only their environment |
+| aws-auth ConfigMap for identity | Maps IAM roles to K8s groups — identity controlled in code |
+| ClusterRole + RoleBinding pattern | Define permissions once — bind per namespace — no duplication |
+| ClusterRole + ClusterRoleBinding for DevOps | Admin needs cluster-level access — nodes, namespaces, PVs |
+| ResourceQuota per namespace | Prevents one team consuming all cluster resources |
+| ECR over DockerHub | Private registry — worker nodes pull using IAM, no passwords |
+| One ECR repo, multiple image tags | Same image runs in all environments — only tag and config change |
+| ConfigMap for app config | Same Docker image — different behaviour per environment |
+| Plan-only CI/CD | Every infrastructure change reviewed before touching AWS |
+| Path-based pipeline triggers | Only affected environment plans run — no unnecessary CI runs |
+
+---
+
 ## Security
 
 - Worker nodes in private subnets — no direct internet access
-- Separate least-privilege IAM roles for cluster, nodes, and developers
-- Kubernetes RBAC scoped per namespace — developers cannot access other environments
-- `.tfvars` gitignored — no secrets in version control
-- Branch protection on main — all changes require PR and passing plan checks
+- Separate least-privilege IAM roles for cluster, nodes, per-environment developers
+- aws-auth ConfigMap maps IAM roles to Kubernetes groups — version controlled
+- RBAC scoped per namespace — developers cannot access other environments
+- ClusterRole + ClusterRoleBinding only for DevOps lead
+- ECR image scanning enabled — CVE vulnerabilities detected on every push
+- `.tfvars` gitignored — no credentials in version control
+- Branch protection on main — all changes require PR and passing pipeline checks
 
 ---
 
