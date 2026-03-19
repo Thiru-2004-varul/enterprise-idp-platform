@@ -1,6 +1,6 @@
 resource "aws_iam_role" "eks_cluster" {
   name        = "${var.environment}-eks-cluster-role"
-  description = "IAM role for EKS control plane — least privilege"
+  description = "IAM role for EKS control plane"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -52,7 +52,7 @@ resource "aws_iam_role_policy_attachment" "eks_ecr_readonly" {
 
 resource "aws_iam_role" "developer" {
   name        = "${var.environment}-developer-role"
-  description = "Least-privilege developer role — namespace access only via K8s RBAC"
+  description = "Least privilege developer role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -68,7 +68,7 @@ resource "aws_iam_role" "developer" {
 
 resource "aws_iam_policy" "developer_eks_access" {
   name        = "${var.environment}-developer-eks-policy"
-  description = "Allows DescribeCluster only — actual deploy access is in K8s RBAC"
+  description = "Allows DescribeCluster only"
 
   policy = jsonencode({
     Version = "2012-10-17"
